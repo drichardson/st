@@ -298,9 +298,9 @@ numlock(const Arg *dummy)
 void
 swapcolors(const Arg *dummy)
 {
- usealtcolors = !usealtcolors;
- xloadcols();
- redraw();
+	usealtcolors = !usealtcolors;
+	xloadcols();
+	redraw();
 }
 
 void
