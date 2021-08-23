@@ -14,6 +14,7 @@
 #include <X11/keysym.h>
 #include <X11/Xft/Xft.h>
 #include <X11/XKBlib.h>
+#include <sys/inotify.h>
 
 char *argv0;
 #include "arg.h"
@@ -1922,10 +1923,26 @@ run(void)
 	ttyfd = ttynew(opt_line, shell, opt_io, opt_cmd);
 	cresize(w, h);
 
+	//
+	// Setup inotify darkmode watcher. 
+	//
+	int notifyfd = inotify_init1(IN_CLOEXEC);
+	if (notifyfd == -1) {
+		die("inotify_init1 failed: %s\n", strerror(errno));
+	}
+
+	int darkmodewd = inotify_add_watch(notifyfd, "/home/doug/.config", IN_CREATE | IN_DELETE);
+	if (darkmodewd == -1) {
+		die("inotify_add_watch darkmode failed: %s\n", strerror(errno));
+	}
+
+	const int nfds= MAX(MAX(ttyfd, xfd), notifyfd) + 1;
+
 	for (timeout = -1, drawing = 0, lastblink = (struct timespec){0};;) {
 		FD_ZERO(&rfd);
 		FD_SET(ttyfd, &rfd);
 		FD_SET(xfd, &rfd);
+		FD_SET(notifyfd, &rfd);
 
 		if (XPending(xw.dpy))
 			timeout = 0;  /* existing events might not set xfd */
@@ -1934,7 +1951,7 @@ run(void)
 		seltv.tv_nsec = 1E6 * (timeout - 1E3 * seltv.tv_sec);
 		tv = timeout >= 0 ? &seltv : NULL;
 
-		if (pselect(MAX(xfd, ttyfd)+1, &rfd, NULL, NULL, tv, NULL) < 0) {
+		if (pselect(nfds, &rfd, NULL, NULL, tv, NULL) < 0) {
 			if (errno == EINTR)
 				continue;
 			die("select failed: %s\n", strerror(errno));
@@ -1993,6 +2010,50 @@ run(void)
 		draw();
 		XFlush(xw.dpy);
 		drawing = 0;
+
+		if (FD_ISSET(notifyfd, &rfd)) {
+			// declaration of buf from man (2) inotify
+			char buf[4096] __attribute__ ((aligned(__alignof__(struct inotify_event))));
+			size_t len = read(notifyfd, buf, sizeof(buf));
+			if (len < 0)
+			{
+				die("read on notify failed: %s\n", strerror(errno));
+			}
+
+			struct inotify_event const* event = NULL;
+			for(char *ptr = buf; ptr < buf + len; ptr += sizeof(struct inotify_event) + event->len) {
+				event = (struct inotify_event*)ptr;
+				
+				if (event->wd == darkmodewd)
+				{
+					if (strcmp(event->name, "darkmode") == 0)
+					{
+						printf("Darkmode file changed.\n");
+
+						if (event->mask & IN_CREATE)
+						{
+							printf("Darkmode file created\n");
+						}
+						else if (event->mask & IN_DELETE)
+						{
+							printf("Darkmode file deleted\n");
+						}
+						else
+						{
+							die("Unexpected darkmode file notify.\n");
+						}
+					}
+					else
+					{
+						printf("Something else changed: %s", event->name);
+					}
+				}
+				else
+				{
+					die("Unexpected wd: %d\n", event->wd);
+				}
+			}
+		}
 	}
 }
 
