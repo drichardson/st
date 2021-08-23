@@ -187,7 +187,10 @@ static void mousesel(XEvent *, int);
 static void mousereport(XEvent *);
 static char *kmap(KeySym, uint);
 static int match(uint, uint);
+static char* join(char const* a, char const* b);
 static char const* xdg_config_home();
+
+static char const* darkmode_filename = "darkmode";
 
 static void run(void);
 static void usage(void);
@@ -1167,6 +1170,12 @@ xinit(int cols, int rows)
 
 	/* colors */
 	xw.cmap = XDefaultColormap(xw.dpy, xw.scr);
+
+	char *darkmode = join(xdg_config_home(), darkmode_filename);
+	struct stat statbuf;
+	usealtcolors = stat(darkmode, &statbuf) == 0;
+	free(darkmode);
+
 	xloadcols();
 
 	/* adjust fixed window geometry */
@@ -2061,22 +2070,27 @@ run(void)
 				
 				if (event->wd == darkmodewd)
 				{
-					if (strcmp(event->name, "darkmode") == 0)
+					if (strcmp(event->name, darkmode_filename) == 0)
 					{
 						printf("Darkmode file changed.\n");
 
 						if (event->mask & IN_CREATE)
 						{
 							printf("Darkmode file created\n");
+							usealtcolors = 1;
 						}
 						else if (event->mask & IN_DELETE)
 						{
 							printf("Darkmode file deleted\n");
+							usealtcolors = 0;
 						}
 						else
 						{
 							die("Unexpected darkmode file notify.\n");
 						}
+
+						xloadcols();
+						redraw();
 					}
 					else
 					{
@@ -2176,6 +2190,16 @@ run:
 	return 0;
 }
 
+static char* join(char const* a, char const* b)
+{
+	char* s = malloc(strlen(a) + strlen(b) + 1);
+	strcpy(s, a);
+	strcat(s, b);
+	return s;
+}
+
+// Return the XDG_CONFIG_HOME, if it exists, otherwise use HOME/.config.
+// https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html
 static char const* xdg_config_home()
 {
 	static char const* dir = NULL;
@@ -2189,13 +2213,7 @@ static char const* xdg_config_home()
 
 	if (dir == NULL)
 	{
-		// https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html
-		char const* home = getenv("HOME");
-		char const* config = "/.config";
-		char* s = malloc(strlen(home) + strlen(config) + 1);
-		strcpy(s, home);
-		strcat(s, config);
-		dir = s;
+		dir = join(getenv("HOME"), "/.config/");
 	}
 
 	return dir;
