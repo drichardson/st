@@ -56,7 +56,6 @@ static void clipcopy(const Arg *);
 static void clippaste(const Arg *);
 static void numlock(const Arg *);
 static void selpaste(const Arg *);
-static void swapcolors(const Arg *);
 static void zoom(const Arg *);
 static void zoomabs(const Arg *);
 static void zoomreset(const Arg *);
@@ -298,14 +297,6 @@ void
 numlock(const Arg *dummy)
 {
 	win.mode ^= MODE_NUMLOCK;
-}
-
-void
-swapcolors(const Arg *dummy)
-{
-	usealtcolors = !usealtcolors;
-	xloadcols();
-	redraw();
 }
 
 void
