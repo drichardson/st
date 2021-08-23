@@ -255,7 +255,7 @@ static char *opt_title = NULL;
 
 static uint buttons; /* bit field of pressed buttons */
 
-int usealtcolors = 0; /* 1 to use alternate palette */
+int usealtcolors = 1; /* 1 to use alternate palette */
 
 void
 clipcopy(const Arg *dummy)
