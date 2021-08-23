@@ -187,6 +187,7 @@ static void mousesel(XEvent *, int);
 static void mousereport(XEvent *);
 static char *kmap(KeySym, uint);
 static int match(uint, uint);
+static char const* xdg_config_home();
 
 static void run(void);
 static void usage(void);
@@ -1931,9 +1932,9 @@ run(void)
 		die("inotify_init1 failed: %s\n", strerror(errno));
 	}
 
-	int darkmodewd = inotify_add_watch(notifyfd, "/home/doug/.config", IN_CREATE | IN_DELETE);
+	int darkmodewd = inotify_add_watch(notifyfd, xdg_config_home(), IN_CREATE | IN_DELETE);
 	if (darkmodewd == -1) {
-		die("inotify_add_watch darkmode failed: %s\n", strerror(errno));
+		die("inotify_add_watch %s failed: %s\n", xdg_config_home(), strerror(errno));
 	}
 
 	const int nfds= MAX(MAX(ttyfd, xfd), notifyfd) + 1;
@@ -2140,3 +2141,29 @@ run:
 
 	return 0;
 }
+
+static char const* xdg_config_home()
+{
+	static char const* dir = NULL;
+
+	if (dir)
+	{
+		return dir;
+	}
+
+	dir = getenv("XDG_CONFIG_HOME");
+
+	if (dir == NULL)
+	{
+		// https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html
+		char const* home = getenv("HOME");
+		char const* config = "/.config";
+		char* s = malloc(strlen(home) + strlen(config) + 1);
+		strcpy(s, home);
+		strcat(s, config);
+		dir = s;
+	}
+
+	return dir;
+}
+
