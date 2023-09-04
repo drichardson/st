@@ -142,6 +142,14 @@ static const char *altcolorname[] = {
 	"#6c71c4",  /* 13: brmagenta*/
 	"#586e75",  /* 14: brcyan   */
 	"#002b36",  /* 15: brwhite  */
+
+	[255] = 0,
+
+	/* more colors can be added after 255 to use with DefaultXX */
+	"#cccccc",
+	"#555555",
+	"gray90", /* default foreground colour */
+	"black", /* default background colour */
 };
 
 /*
